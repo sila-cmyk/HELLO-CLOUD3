@@ -2,6 +2,7 @@ from flask import Flask, render_template_string, request, redirect
 import requests
 
 app = Flask(__name__)
+application = app  # Bu satırı ekle
 
 # ÖNEMLİ: api_service adresinizi buraya yazın (sonunda / olmasın)
 API_URL = "https://hello-cloud3-20.onrender.com"
