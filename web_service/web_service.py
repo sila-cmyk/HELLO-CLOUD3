@@ -3,7 +3,7 @@ from flask import Flask, render_template_string, request
 app = Flask(__name__)
 application = app
 
-# Verileri veritabanı yerine bu listede tutacağız
+# Verileri (isim ve şehir ikilisi olarak) bu listede tutacağız
 ziyaretci_listesi = []
 
 HTML = """
@@ -14,24 +14,31 @@ HTML = """
     <style>
         body { font-family: Arial; text-align: center; padding: 50px; background: #eef2f3; }
         h1 { color: #333; }
-        form { margin: 20px auto; }
-        input { padding: 10px; font-size: 16px; }
-        button { padding: 10px 15px; background: #4CAF50; color: white; border: none; border-radius: 6px; cursor: pointer; }
+        form { margin: 20px auto; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+        input { padding: 10px; font-size: 16px; width: 250px; border-radius: 5px; border: 1px solid #ccc; }
+        button { padding: 10px 20px; background: #4CAF50; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
         ul { list-style: none; padding: 0; }
-        li { background: white; margin: 5px auto; width: 200px; padding: 8px; border-radius: 5px; }
+        li { background: white; margin: 8px auto; width: 300px; padding: 12px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .city { color: #666; font-size: 0.9em; font-style: italic; }
     </style>
 </head>
 <body>
     <h1>Buluttan Selam!</h1>
-    <p>Adını yaz, selamını bırak </p>
+    <p>Bilgilerini yaz, selamını bırak</p>
+    
     <form method="POST">
-        <input type="text" name="isim" placeholder="Adını yaz" required>
-        <button type="submit">Gönder</button>
+        <input type="text" name="isim" placeholder="Adınızı yazın" required>
+        <input type="text" name="sehir" placeholder="Yaşadığınız şehir" required>
+        <button type="submit">Selam Gönder</button>
     </form>
-    <h3>Ziyaretçiler:</h3>
+
+    <h3>Son Ziyaretçiler:</h3>
     <ul>
-        {% for ad in isimler %}
-            <li>{{ ad }}</li>
+        {% for kisi in ziyaretciler %}
+            <li>
+                <strong>{{ kisi.ad }}</strong> <br>
+                <span class="city">📍 {{ kisi.sehir }}</span>
+            </li>
         {% endfor %}
     </ul>
 </body>
@@ -42,14 +49,17 @@ HTML = """
 def index():
     if request.method == "POST":
         isim = request.form.get("isim")
-        if isim:
-            # İsmi listenin en başına ekle
-            ziyaretci_listesi.insert(0, isim)
-            # Sadece son 10 ismi tutalım
+        sehir = request.form.get("sehir")
+        
+        if isim and sehir:
+            # İsim ve şehri bir sözlük (dictionary) olarak listenin başına ekle
+            ziyaretci_listesi.insert(0, {"ad": isim, "sehir": sehir})
+            
+            # Listenin çok uzamasını engellemek için son 10 kaydı tut
             if len(ziyaretci_listesi) > 10:
                 ziyaretci_listesi.pop()
 
-    return render_template_string(HTML, isimler=ziyaretci_listesi)
+    return render_template_string(HTML, ziyaretciler=ziyaretci_listesi)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
