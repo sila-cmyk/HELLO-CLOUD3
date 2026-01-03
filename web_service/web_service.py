@@ -1,12 +1,10 @@
 from flask import Flask, render_template_string, request
-import os
-import psycopg2
 
 app = Flask(__name__)
-application = app  # Render'ın 'application' araması ihtimaline karşı ekledik
+application = app
 
-# Veritabanı bağlantı adresi (Render panelindeki Environment Variables'dan gelir)
-DATABASE_URL = os.getenv("DATABASE_URL")
+# Verileri veritabanı yerine bu listede tutacağız
+ziyaretci_listesi = []
 
 HTML = """
 <!doctype html>
@@ -40,33 +38,18 @@ HTML = """
 </html>
 """
 
-def connect_db():
-    # SSL mode ekleyerek veritabanı bağlantısını daha güvenli ve uyumlu hale getirdik
-    conn = psycopg2.connect(DATABASE_URL, sslmode='require')
-    conn.autocommit = True # Bu satır, verilerin anında kaydedilmesini sağlar
-    return conn
-
 @app.route("/", methods=["GET", "POST"])
 def index():
-    conn = connect_db()
-    cur = conn.cursor()
-    
-    # Tabloyu oluştur
-    cur.execute("CREATE TABLE IF NOT EXISTS ziyaretciler (id SERIAL PRIMARY KEY, isim TEXT)")
-
     if request.method == "POST":
         isim = request.form.get("isim")
         if isim:
-            # İsmi veritabanına ekle
-            cur.execute("INSERT INTO ziyaretciler (isim) VALUES (%s)", (isim,))
+            # İsmi listenin en başına ekle
+            ziyaretci_listesi.insert(0, isim)
+            # Sadece son 10 ismi tutalım
+            if len(ziyaretci_listesi) > 10:
+                ziyaretci_listesi.pop()
 
-    # Listeyi çek
-    cur.execute("SELECT isim FROM ziyaretciler ORDER BY id DESC LIMIT 10")
-    isimler = [row[0] for row in cur.fetchall()]
-
-    cur.close()
-    conn.close()
-    return render_template_string(HTML, isimler=isimler)
+    return render_template_string(HTML, isimler=ziyaretci_listesi)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
