@@ -1,68 +1,71 @@
-from flask import Flask, render_template_string, request, redirect
-import requests
+from flask import Flask, render_template_string, request
+import os
+import psycopg2
 
 app = Flask(__name__)
-application = app  # Bu satırı ekle
+application = app  # Render'ın 'application' araması ihtimaline karşı ekledik
 
-# ÖNEMLİ: api_service adresinizi buraya yazın (sonunda / olmasın)
-API_URL = "https://hello-cloud3-20.onrender.com"
+# Veritabanı bağlantı adresi (Render panelindeki Environment Variables'dan gelir)
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 HTML = """
 <!doctype html>
 <html>
 <head>
-    <title>Ziyaretçi Defteri</title>
+    <title>Buluttan Selam!</title>
     <style>
         body { font-family: Arial; text-align: center; padding: 50px; background: #eef2f3; }
         h1 { color: #333; }
-        input { padding: 10px; font-size: 16px; margin: 5px; }
+        form { margin: 20px auto; }
+        input { padding: 10px; font-size: 16px; }
         button { padding: 10px 15px; background: #4CAF50; color: white; border: none; border-radius: 6px; cursor: pointer; }
-        ul { list-style-type: none; padding: 0; max-width: 350px; margin: 20px auto; text-align: left; }
-        li { background: white; margin: 5px auto; padding: 10px; border-radius: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        ul { list-style: none; padding: 0; }
+        li { background: white; margin: 5px auto; width: 200px; padding: 8px; border-radius: 5px; }
     </style>
 </head>
 <body>
-    <h1>Mikro Hizmetli Selam!</h1>
+    <h1>Buluttan Selam!</h1>
+    <p>Adını yaz, selamını bırak </p>
     <form method="POST">
-        <input type="text" name="isim" placeholder="Adınızı yaz" required>
-        <input type="text" name="sehir" placeholder="Şehrinizi yaz" required>
+        <input type="text" name="isim" placeholder="Adını yaz" required>
         <button type="submit">Gönder</button>
     </form>
-
-    <h3>Ziyaretçiler ve Şehirleri:</h3>
+    <h3>Ziyaretçiler:</h3>
     <ul>
-        {% for ziyaretci in isimler %}
-            <li>{{ ziyaretci.isim }} - {{ ziyaretci.sehir }}</li>
+        {% for ad in isimler %}
+            <li>{{ ad }}</li>
         {% endfor %}
     </ul>
 </body>
 </html>
 """
 
+def connect_db():
+    # SSL mode ekleyerek veritabanı bağlantısını daha güvenli ve uyumlu hale getirdik
+    conn = psycopg2.connect(DATABASE_URL, sslmode='require')
+    conn.autocommit = True # Bu satır, verilerin anında kaydedilmesini sağlar
+    return conn
+
 @app.route("/", methods=["GET", "POST"])
 def index():
+    conn = connect_db()
+    cur = conn.cursor()
+    
+    # Tabloyu oluştur
+    cur.execute("CREATE TABLE IF NOT EXISTS ziyaretciler (id SERIAL PRIMARY KEY, isim TEXT)")
+
     if request.method == "POST":
         isim = request.form.get("isim")
-        sehir = request.form.get("sehir")
-        
-        if isim and sehir:
-            try:
-                # Veriyi API'ye gönder
-                requests.post(f"{API_URL}/ziyaretciler", json={"isim": isim, "sehir": sehir}, timeout=5)
-            except Exception as e:
-                print(f"Hata oluştu: {e}")
-        
-        return redirect("/")
+        if isim:
+            # İsmi veritabanına ekle
+            cur.execute("INSERT INTO ziyaretciler (isim) VALUES (%s)", (isim,))
 
-    # Sayfa her yüklendiğinde verileri çek
-    isimler = []
-    try:
-        resp = requests.get(f"{API_URL}/ziyaretciler", timeout=5)
-        if resp.status_code == 200:
-            isimler = resp.json()
-    except Exception as e:
-        print(f"Veri çekme hatası: {e}")
+    # Listeyi çek
+    cur.execute("SELECT isim FROM ziyaretciler ORDER BY id DESC LIMIT 10")
+    isimler = [row[0] for row in cur.fetchall()]
 
+    cur.close()
+    conn.close()
     return render_template_string(HTML, isimler=isimler)
 
 if __name__ == "__main__":
